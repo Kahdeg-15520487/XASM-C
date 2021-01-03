@@ -1,0 +1,14 @@
+{
+    "files.associations": {
+        "iostream": "c",
+        "compare": "cpp",
+        "cstddef": "cpp",
+        "limits": "cpp",
+        "memory": "cpp",
+        "system_error": "cpp",
+        "type_traits": "cpp",
+        "xiosbase": "cpp",
+        "xlocale": "cpp",
+        "xutility": "cpp"
+    }
+}
