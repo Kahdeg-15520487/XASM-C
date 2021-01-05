@@ -9,6 +9,7 @@ void disassembleChunk(Chunk *chunk, const char *name) {
   for (int offset = 0; offset < chunk->count;) {
     offset = disassembleInstruction(chunk, offset);
   }
+  printf("== %s ==\n", name);
 }
 
 static int simpleInstruction(const char *name, int offset) {
@@ -85,8 +86,21 @@ int disassembleInstruction(Chunk *chunk, int offset) {
     return simpleInstruction("OP_inc", offset);
   case OP_NEG:
     return simpleInstruction("OP_neg", offset);
-  case OP_CMP:
-    return simpleInstruction("OP_cmp", offset);
+  case OP_EQUAL:
+    return simpleInstruction("OP_eq", offset);
+  case OP_GREATER:
+    return simpleInstruction("OP_gt", offset);
+  case OP_LESS:
+    return simpleInstruction("OP_lt", offset);
+  case OP_NOT:
+    return simpleInstruction("OP_NOT", offset);
+
+  case OP_NIL:
+    return simpleInstruction("OP_NIL", offset);
+  case OP_TRUE:
+    return simpleInstruction("OP_TRUE", offset);
+  case OP_FALSE:
+    return simpleInstruction("OP_FALSE", offset);
 
   case OP_PUSH:
     return simpleInstruction("OP_push", offset);

@@ -9,6 +9,7 @@
         "type_traits": "cpp",
         "xiosbase": "cpp",
         "xlocale": "cpp",
-        "xutility": "cpp"
+        "xutility": "cpp",
+        "xtr1common": "cpp"
     }
 }

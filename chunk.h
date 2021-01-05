@@ -32,7 +32,15 @@ typedef enum {
   OP_DEC,
   OP_INC,
   OP_NEG,
-  OP_CMP,
+
+  OP_EQUAL,
+  OP_GREATER,
+  OP_LESS,
+  OP_NOT,
+
+  OP_NIL,
+  OP_TRUE,
+  OP_FALSE,
 
   OP_PUSH,
   OP_YEET,
@@ -61,13 +69,13 @@ typedef struct {
   int count;
   int capacity;
   uint8_t *code;
-  int* lines;
+  int *lines;
   ValueArray constants;
 } Chunk;
 
 void initChunk(Chunk *chunk);
-void writeChunk(Chunk* chunk, uint8_t byte, int line);
-int addConstant(Chunk* chunk, Value value);
+void writeChunk(Chunk *chunk, uint8_t byte, int line);
+int addConstant(Chunk *chunk, Value value);
 void freeChunk(Chunk *chunk);
 
 #endif
