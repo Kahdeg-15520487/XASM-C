@@ -11,7 +11,8 @@
 
 VM vm;
 
-static void resetStack() {
+static void resetStack()
+{
   vm.stackTop = vm.stack;
   vm.stackCount = 0;
   vm.OverflowFlag = false;
@@ -21,8 +22,10 @@ void initVM() { resetStack(); }
 
 void freeVM() {}
 
-void push(Value value) {
-  if (vm.stackCount + 1 == STACK_MAX) {
+void push(Value value)
+{
+  if (vm.stackCount + 1 == STACK_MAX)
+  {
     vm.OverflowFlag = true;
     return;
   }
@@ -31,26 +34,31 @@ void push(Value value) {
   vm.stackCount++;
 }
 
-Value pop() {
+Value pop()
+{
   vm.stackTop--;
   return *vm.stackTop;
 }
 
-static InterpretResult run() {
+static InterpretResult run()
+{
 #define READ_BYTE() (*vm.ip++)
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
 
-#define BINARY_OP(op)                                                          \
-  do {                                                                         \
-    char b = pop();                                                            \
-    char a = pop();                                                            \
-    push(a op b);                                                              \
+#define BINARY_OP(op) \
+  do                  \
+  {                   \
+    char b = pop();   \
+    char a = pop();   \
+    push(a op b);     \
   } while (false)
 
-  for (;;) {
+  for (;;)
+  {
 #ifdef DEBUG_TRACE_EXECUTION
     printf("          ");
-    for (Value *slot = vm.stack; slot < vm.stackTop; slot++) {
+    for (Value *slot = vm.stack; slot < vm.stackTop; slot++)
+    {
       printf("[ ");
       printValue(*slot);
       printf(" ]");
@@ -60,39 +68,48 @@ static InterpretResult run() {
 #endif
 
     uint8_t instruction;
-    switch (instruction = READ_BYTE()) {
-    case OP_RET: {
+    switch (instruction = READ_BYTE())
+    {
+    case OP_RET:
+    {
       printValue(pop());
       printf("\n");
       return INTERPRET_OK;
     }
 
-    case OP_YEET: {
+    case OP_YEET:
+    {
       Value constant = READ_CONSTANT();
       push(constant);
-      if (vm.OverflowFlag) {
+      if (vm.OverflowFlag)
+      {
         return INTERPRET_RUNTIME_ERROR;
       }
       break;
     }
 
-    case OP_NEG: {
+    case OP_NEG:
+    {
       push(-pop());
       break;
     }
-    case OP_ADD: {
+    case OP_ADD:
+    {
       BINARY_OP(+);
       break;
     }
-    case OP_SUB: {
+    case OP_SUB:
+    {
       BINARY_OP(-);
       break;
     }
-    case OP_MUL: {
+    case OP_MUL:
+    {
       BINARY_OP(*);
       break;
     }
-    case OP_DIV: {
+    case OP_DIV:
+    {
       BINARY_OP(/);
       break;
     }
@@ -104,15 +121,29 @@ static InterpretResult run() {
 #undef BINARY_OP
 }
 
-InterpretResult interpretChunk(Chunk *chunk) {
+InterpretResult interpretChunk(Chunk *chunk)
+{
   vm.chunk = chunk;
   vm.ip = vm.chunk->code;
   return run();
 }
 
-InterpretResult interpret(const char* source) {
-  compile(source);
-  return INTERPRET_OK;
+InterpretResult interpret(const char *source)
+{
+  Chunk chunk;
+  initChunk(&chunk);
 
+  if (!compile(source, &chunk))
+  {
+    freeChunk(&chunk);
+    return INTERPRET_COMPILE_ERROR;
+  }
+
+  vm.chunk = &chunk;
+  vm.ip = vm.chunk->code;
+
+  InterpretResult result = run();
+
+  freeChunk(&chunk);
+  return result;
 }
-
