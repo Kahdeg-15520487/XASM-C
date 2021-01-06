@@ -44,6 +44,7 @@ typedef enum
   OP_FALSE,
 
   OP_GET_GLOBAL,
+  OP_SET_GLOBAL,
   OP_DEFINE_GLOBAL,
 
   OP_PUSH,
