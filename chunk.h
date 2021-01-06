@@ -4,7 +4,8 @@
 #include "common.h"
 #include "value.h"
 
-typedef enum {
+typedef enum
+{
   OP_JMP,
   OP_JE,
   OP_JNE,
@@ -42,6 +43,9 @@ typedef enum {
   OP_TRUE,
   OP_FALSE,
 
+  OP_GET_GLOBAL,
+  OP_DEFINE_GLOBAL,
+
   OP_PUSH,
   OP_YEET,
   OP_POP,
@@ -63,9 +67,11 @@ typedef enum {
   OP_BRP,
   OP_REQ,
   OP_HOST,
+  OP_PRINT,
 } OpCode;
 
-typedef struct {
+typedef struct
+{
   int count;
   int capacity;
   uint8_t *code;

@@ -1,8 +1,11 @@
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "common.h"
 #include "compiler.h"
+#include "memory.h"
+#include "object.h"
 #include "value.h"
 #include "vm.h"
 
@@ -12,13 +15,15 @@
 
 VM vm;
 
-static void resetStack() {
+static void resetStack()
+{
   vm.stackTop = vm.stack;
   vm.stackCount = 0;
   vm.OverflowFlag = false;
 }
 
-static void runtimeError(const char *format, ...) {
+static void runtimeError(const char *format, ...)
+{
   va_list args;
   va_start(args, format);
   vfprintf(stderr, format, args);
@@ -32,12 +37,26 @@ static void runtimeError(const char *format, ...) {
   resetStack();
 }
 
-void initVM() { resetStack(); }
+void initVM()
+{
+  resetStack();
+  vm.objects = NULL;
 
-void freeVM() {}
+  initTable(&vm.globals);
+  initTable(&vm.strings);
+}
 
-void push(Value value) {
-  if (vm.stackCount + 1 == STACK_MAX) {
+void freeVM()
+{
+  freeTable(&vm.globals);
+  freeTable(&vm.strings);
+  freeObjects();
+}
+
+void push(Value value)
+{
+  if (vm.stackCount + 1 == STACK_MAX)
+  {
     vm.OverflowFlag = true;
     return;
   }
@@ -46,7 +65,8 @@ void push(Value value) {
   vm.stackCount++;
 }
 
-Value pop() {
+Value pop()
+{
   vm.stackCount--;
   vm.stackTop--;
   return *vm.stackTop;
@@ -54,113 +74,151 @@ Value pop() {
 
 static Value peek(int distance) { return vm.stackTop[-1 - distance]; }
 
-static bool isFalsey(Value value) {
+static bool isFalsey(Value value)
+{
   return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
 }
 
-static InterpretResult run() {
+static void concatenate()
+{
+  ObjString *b = AS_STRING(pop());
+  ObjString *a = AS_STRING(pop());
+
+  int length = a->length + b->length;
+  char *chars = ALLOCATE(char, length + 1);
+  memcpy(chars, a->chars, a->length);
+  memcpy(chars + a->length, b->chars, b->length);
+  chars[length] = '\0';
+
+  ObjString *result = takeString(chars, length);
+  push(OBJ_VAL(result));
+}
+
+static InterpretResult run()
+{
 #define READ_BYTE() (*vm.ip++)
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
+#define READ_STRING() AS_STRING(READ_CONSTANT())
 
-#define BINARY_OP(op, isComparison)                                            \
-  do {                                                                         \
-    if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1))) {                          \
-      runtimeError("Operands must be numbers.");                               \
-      return INTERPRET_RUNTIME_ERROR;                                          \
-    }                                                                          \
-    Value b = pop();                                                           \
-    Value a = pop();                                                           \
-    printValue(a);                                                             \
-    printValue(b);                                                             \
-    printf("\n");                                                              \
-    switch (a.type) {                                                          \
-    case VAL_INT: {                                                            \
-      int va = AS_INT(a);                                                      \
-      int vb = 0;                                                              \
-      switch (b.type) {                                                        \
-      case VAL_BYTE: {                                                         \
-        vb = AS_BYTE(b);                                                       \
-        break;                                                                 \
-      }                                                                        \
-      case VAL_INT: {                                                          \
-        vb = AS_INT(b);                                                        \
-        break;                                                                 \
-      }                                                                        \
-      case VAL_FLOAT: {                                                        \
-        vb = (int)AS_FLOAT(b);                                                 \
-        break;                                                                 \
-      }                                                                        \
-      default:                                                                 \
-        runtimeError("Operand must be a number.");                             \
-        break;                                                                 \
-      }                                                                        \
-      if (isComparison)                                                        \
-        push(BOOL_VAL(va op vb));                                              \
-      else                                                                     \
-        push(INT_VAL(va op vb));                                               \
-      break;                                                                   \
-    }                                                                          \
-    case VAL_BYTE: {                                                           \
-      char va = AS_BYTE(a);                                                    \
-      char vb = 0;                                                             \
-      switch (b.type) {                                                        \
-      case VAL_BYTE: {                                                         \
-        vb = AS_BYTE(b);                                                       \
-        break;                                                                 \
-      }                                                                        \
-      case VAL_INT: {                                                          \
-        vb = (char)AS_INT(b);                                                  \
-        break;                                                                 \
-      }                                                                        \
-      case VAL_FLOAT: {                                                        \
-        vb = (char)AS_FLOAT(b);                                                \
-        break;                                                                 \
-      }                                                                        \
-      default:                                                                 \
-        runtimeError("Operand must be a number.");                             \
-        break;                                                                 \
-      }                                                                        \
-      if (isComparison)                                                        \
-        push(BOOL_VAL(va op vb));                                              \
-      else                                                                     \
-        push(BYTE_VAL(va op vb));                                              \
-      break;                                                                   \
-    }                                                                          \
-    case VAL_FLOAT: {                                                          \
-      float va = AS_FLOAT(a);                                                  \
-      float vb = 0;                                                            \
-      switch (b.type) {                                                        \
-      case VAL_BYTE: {                                                         \
-        vb = (float)AS_BYTE(b);                                                \
-        break;                                                                 \
-      }                                                                        \
-      case VAL_INT: {                                                          \
-        vb = (float)AS_INT(b);                                                 \
-        break;                                                                 \
-      }                                                                        \
-      case VAL_FLOAT: {                                                        \
-        vb = (float)AS_FLOAT(b);                                               \
-        break;                                                                 \
-      }                                                                        \
-      default:                                                                 \
-        runtimeError("Operand must be a number.");                             \
-        break;                                                                 \
-      }                                                                        \
-      if (isComparison)                                                        \
-        push(BOOL_VAL(va op vb));                                              \
-      else                                                                     \
-        push(FLOAT_VAL(va op vb));                                             \
-      break;                                                                   \
-    }                                                                          \
-    default:                                                                   \
-      runtimeError("Operand must be a number.");                               \
-      break;                                                                   \
-    }                                                                          \
+#define BINARY_OP(op, isComparison)                 \
+  do                                                \
+  {                                                 \
+    if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1))) \
+    {                                               \
+      runtimeError("Operands must be numbers.");    \
+      return INTERPRET_RUNTIME_ERROR;               \
+    }                                               \
+    Value b = pop();                                \
+    Value a = pop();                                \
+    printValue(a);                                  \
+    printValue(b);                                  \
+    printf("\n");                                   \
+    switch (a.type)                                 \
+    {                                               \
+    case VAL_INT:                                   \
+    {                                               \
+      int va = AS_INT(a);                           \
+      int vb = 0;                                   \
+      switch (b.type)                               \
+      {                                             \
+      case VAL_BYTE:                                \
+      {                                             \
+        vb = AS_BYTE(b);                            \
+        break;                                      \
+      }                                             \
+      case VAL_INT:                                 \
+      {                                             \
+        vb = AS_INT(b);                             \
+        break;                                      \
+      }                                             \
+      case VAL_FLOAT:                               \
+      {                                             \
+        vb = (int)AS_FLOAT(b);                      \
+        break;                                      \
+      }                                             \
+      default:                                      \
+        runtimeError("Operand must be a number.");  \
+        break;                                      \
+      }                                             \
+      if (isComparison)                             \
+        push(BOOL_VAL(va op vb));                   \
+      else                                          \
+        push(INT_VAL(va op vb));                    \
+      break;                                        \
+    }                                               \
+    case VAL_BYTE:                                  \
+    {                                               \
+      char va = AS_BYTE(a);                         \
+      char vb = 0;                                  \
+      switch (b.type)                               \
+      {                                             \
+      case VAL_BYTE:                                \
+      {                                             \
+        vb = AS_BYTE(b);                            \
+        break;                                      \
+      }                                             \
+      case VAL_INT:                                 \
+      {                                             \
+        vb = (char)AS_INT(b);                       \
+        break;                                      \
+      }                                             \
+      case VAL_FLOAT:                               \
+      {                                             \
+        vb = (char)AS_FLOAT(b);                     \
+        break;                                      \
+      }                                             \
+      default:                                      \
+        runtimeError("Operand must be a number.");  \
+        break;                                      \
+      }                                             \
+      if (isComparison)                             \
+        push(BOOL_VAL(va op vb));                   \
+      else                                          \
+        push(BYTE_VAL(va op vb));                   \
+      break;                                        \
+    }                                               \
+    case VAL_FLOAT:                                 \
+    {                                               \
+      float va = AS_FLOAT(a);                       \
+      float vb = 0;                                 \
+      switch (b.type)                               \
+      {                                             \
+      case VAL_BYTE:                                \
+      {                                             \
+        vb = (float)AS_BYTE(b);                     \
+        break;                                      \
+      }                                             \
+      case VAL_INT:                                 \
+      {                                             \
+        vb = (float)AS_INT(b);                      \
+        break;                                      \
+      }                                             \
+      case VAL_FLOAT:                               \
+      {                                             \
+        vb = (float)AS_FLOAT(b);                    \
+        break;                                      \
+      }                                             \
+      default:                                      \
+        runtimeError("Operand must be a number.");  \
+        break;                                      \
+      }                                             \
+      if (isComparison)                             \
+        push(BOOL_VAL(va op vb));                   \
+      else                                          \
+        push(FLOAT_VAL(va op vb));                  \
+      break;                                        \
+    }                                               \
+    default:                                        \
+      runtimeError("Operand must be a number.");    \
+      break;                                        \
+    }                                               \
   } while (false)
 
-  for (;;) {
+  for (;;)
+  {
 #ifdef DEBUG_TRACE_EXECUTION
-    for (Value *slot = vm.stack; slot < vm.stackTop; slot++) {
+    for (Value *slot = vm.stack; slot < vm.stackTop; slot++)
+    {
       printf("          ");
       printf("[ ");
       printValue(*slot);
@@ -171,29 +229,61 @@ static InterpretResult run() {
 #endif
 
     uint8_t instruction;
-    switch (instruction = READ_BYTE()) {
-    case OP_RET: {
-      printValue(pop());
-      printf("\n");
+    switch (instruction = READ_BYTE())
+    {
+    case OP_RET:
+    {
       return INTERPRET_OK;
     }
 
-    case OP_YEET: {
+    //scope management
+    case OP_DEFINE_GLOBAL:
+    {
+      ObjString *name = READ_STRING();
+      tableSet(&vm.globals, name, peek(0));
+      pop();
+      break;
+    }
+    case OP_GET_GLOBAL:
+    {
+      ObjString *name = READ_STRING();
+      Value value;
+      if (!tableGet(&vm.globals, name, &value))
+      {
+        runtimeError("Undefined variable '%s'.", name->chars);
+        return INTERPRET_RUNTIME_ERROR;
+      }
+      push(value);
+      break;
+    }
+
+      //stack manipulation
+    case OP_YEET:
+    {
       Value constant = READ_CONSTANT();
       push(constant);
-      if (vm.OverflowFlag) {
+      if (vm.OverflowFlag)
+      {
         return INTERPRET_RUNTIME_ERROR;
       }
       break;
     }
+    case OP_POP:
+    {
+      pop();
+      break;
+    }
 
-    case OP_NEG: {
-      if (!IS_NUMBER(peek(0))) {
+    case OP_NEG:
+    {
+      if (!IS_NUMBER(peek(0)))
+      {
         runtimeError("Operand must be a number.");
         return INTERPRET_RUNTIME_ERROR;
       }
       Value inp = pop();
-      switch (inp.type) {
+      switch (inp.type)
+      {
       case VAL_BYTE:
         push(BYTE_VAL(-AS_BYTE(inp)));
         break;
@@ -209,19 +299,35 @@ static InterpretResult run() {
       }
       break;
     }
-    case OP_ADD: {
-      BINARY_OP(+, false);
+    case OP_ADD:
+    {
+      if (IS_STRING(peek(0)) && IS_STRING(peek(1)))
+      {
+        concatenate();
+      }
+      else if (IS_NUMBER(peek(0)) && IS_NUMBER(peek(1)))
+      {
+        BINARY_OP(+, false);
+      }
+      else
+      {
+        runtimeError("Operands must be two numbers or two strings.");
+        return INTERPRET_RUNTIME_ERROR;
+      }
       break;
     }
-    case OP_SUB: {
+    case OP_SUB:
+    {
       BINARY_OP(-, false);
       break;
     }
-    case OP_MUL: {
+    case OP_MUL:
+    {
       BINARY_OP(*, false);
       break;
     }
-    case OP_DIV: {
+    case OP_DIV:
+    {
       BINARY_OP(/, false);
       break;
     }
@@ -243,7 +349,8 @@ static InterpretResult run() {
       break;
 
     // comparison:
-    case OP_EQUAL: {
+    case OP_EQUAL:
+    {
       Value b = pop();
       Value a = pop();
       push(BOOL_VAL(valuesEqual(a, b)));
@@ -256,25 +363,37 @@ static InterpretResult run() {
     case OP_LESS:
       BINARY_OP(<, true);
       break;
+
+    //system
+    case OP_PRINT:
+    {
+      printValue(pop());
+      printf("\n");
+      break;
+    }
     }
   }
 
 #undef READ_BYTE
 #undef READ_CONSTANT
+#undef READ_STRING
 #undef BINARY_OP
 }
 
-InterpretResult interpretChunk(Chunk *chunk) {
+InterpretResult interpretChunk(Chunk *chunk)
+{
   vm.chunk = chunk;
   vm.ip = vm.chunk->code;
   return run();
 }
 
-InterpretResult interpret(const char *source) {
+InterpretResult interpret(const char *source)
+{
   Chunk chunk;
   initChunk(&chunk);
 
-  if (!compile(source, &chunk)) {
+  if (!compile(source, &chunk))
+  {
     freeChunk(&chunk);
     return INTERPRET_COMPILE_ERROR;
   }

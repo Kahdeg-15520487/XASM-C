@@ -3,21 +3,29 @@
 
 #include "common.h"
 
-typedef enum {
+typedef struct Obj Obj;
+typedef struct ObjString ObjString;
+
+typedef enum
+{
   VAL_BOOL,
   VAL_NIL,
   VAL_BYTE,
   VAL_INT,
   VAL_FLOAT,
+  VAL_OBJ,
 } ValueType;
 
-typedef struct {
+typedef struct
+{
   ValueType type;
-  union {
+  union
+  {
     bool boolean;
     char byte;
     int i;
     float f;
+    Obj *obj;
   } as;
 } Value;
 
@@ -26,13 +34,15 @@ typedef struct {
 #define IS_BYTE(value) ((value).type == VAL_BYTE)
 #define IS_INT(value) ((value).type == VAL_INT)
 #define IS_FLOAT(value) ((value).type == VAL_FLOAT)
-#define IS_NUMBER(value)                                                       \
-  ((value).type == VAL_BYTE || (value).type == VAL_INT ||                      \
+#define IS_NUMBER(value)                                  \
+  ((value).type == VAL_BYTE || (value).type == VAL_INT || \
    (value).type == VAL_FLOAT)
+#define IS_OBJ(value) ((value).type == VAL_OBJ)
 
-#define IS_TYPE_NUMBER(value)                                                  \
+#define IS_TYPE_NUMBER(value) \
   (value == VAL_BYTE || value == VAL_INT || value == VAL_FLOAT)
 
+#define AS_OBJ(value) ((value).as.obj)
 #define AS_BOOL(value) ((value).as.boolean)
 #define AS_BYTE(value) ((value).as.byte)
 #define AS_INT(value) ((value).as.i)
@@ -43,8 +53,10 @@ typedef struct {
 #define BYTE_VAL(value) ((Value){VAL_BYTE, {.byte = value}})
 #define INT_VAL(value) ((Value){VAL_INT, {.i = value}})
 #define FLOAT_VAL(value) ((Value){VAL_FLOAT, {.f = value}})
+#define OBJ_VAL(object) ((Value){VAL_OBJ, {.obj = (Obj *)object}})
 
-typedef struct {
+typedef struct
+{
   int capacity;
   int count;
   Value *values;
