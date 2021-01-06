@@ -53,7 +53,6 @@ static Token makeToken(TokenType type) {
   token.start = scanner.start;
   token.length = (int)(scanner.current - scanner.start);
   token.line = scanner.line;
-
   return token;
 }
 
@@ -112,7 +111,14 @@ static TokenType identifierType() {
   case 'a':
     return checkKeyword(1, 2, "nd", TOKEN_AND);
   case 'c':
-    return checkKeyword(1, 4, "lass", TOKEN_CLASS);
+    if (scanner.current - scanner.start > 1) {
+      switch (scanner.start[1]) {
+      case 'l':
+        return checkKeyword(2, 3, "ass", TOKEN_CLASS);
+      case 'o':
+        return checkKeyword(2, 3, "nst", TOKEN_CONST);
+      }
+    }
   case 'e':
     return checkKeyword(1, 3, "lse", TOKEN_ELSE);
   case 'f':

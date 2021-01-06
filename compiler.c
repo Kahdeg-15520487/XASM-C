@@ -39,9 +39,17 @@ typedef struct {
   Precedence precedence;
 } ParseRule;
 
+typedef enum {
+  MULTIPLE_ASSIGN,
+  READONLY,
+  SINGLE_ASSIGN,
+} AssignRule;
+
 typedef struct {
   Token name;
   int depth;
+  bool initialized;
+  AssignRule assignRule;
 } Local;
 
 typedef struct {
@@ -270,6 +278,16 @@ static void namedVariable(Token name, bool canAssign) {
     setOp = OP_SET_GLOBAL;
   }
 
+  int tobeAssignedToSlot = resolveLocal(current, &name);
+  if (tobeAssignedToSlot != -1) {
+    Local *tobeAssignedTo = &current->locals[tobeAssignedToSlot];
+    printf("%d", tobeAssignedTo->depth);
+    if (tobeAssignedTo->assignRule == READONLY) {
+      error("Const variable can not be assign to.");
+      return;
+    }
+  }
+
   if (canAssign && match(TOKEN_EQUAL)) {
     expression();
     emitBytes(setOp, (uint8_t)arg);
@@ -340,6 +358,7 @@ ParseRule rules[] = {
     [TOKEN_THIS] = {NULL, NULL, PREC_NONE},
     [TOKEN_TRUE] = {literal, NULL, PREC_NONE},
     [TOKEN_VAR] = {NULL, NULL, PREC_NONE},
+    [TOKEN_CONST] = {NULL, NULL, PREC_NONE},
     [TOKEN_WHILE] = {NULL, NULL, PREC_NONE},
     [TOKEN_ERROR] = {NULL, NULL, PREC_NONE},
     [TOKEN_EOF] = {NULL, NULL, PREC_NONE},
@@ -391,7 +410,7 @@ static int resolveLocal(Compiler *compiler, Token *name) {
   return -1;
 }
 
-static void addLocal(Token name) {
+static void addLocal(Token name, AssignRule assignRule) {
   if (current->localCount == UINT8_COUNT) {
     error("Too many local variables in function.");
     return;
@@ -399,10 +418,11 @@ static void addLocal(Token name) {
 
   Local *local = &current->locals[current->localCount++];
   local->name = name;
-  local->depth = -1;
+  local->initialized = false;
+  local->assignRule = assignRule;
 }
 
-static void declareVariable() {
+static void declareVariable(AssignRule assignRule) {
   if (current->scopeDepth == 0)
     return;
 
@@ -418,13 +438,13 @@ static void declareVariable() {
     }
   }
 
-  addLocal(*name);
+  addLocal(*name, assignRule);
 }
 
-static uint8_t parseVariable(const char *errorMessage) {
+static uint8_t parseVariable(const char *errorMessage, AssignRule assignRule) {
   consume(TOKEN_IDENTIFIER, errorMessage);
 
-  declareVariable();
+  declareVariable(assignRule);
   if (current->scopeDepth > 0)
     return 0;
 
@@ -433,6 +453,9 @@ static uint8_t parseVariable(const char *errorMessage) {
 
 static void markInitialized() {
   current->locals[current->localCount - 1].depth = current->scopeDepth;
+  if (current->locals[current->localCount - 1].assignRule == SINGLE_ASSIGN) {
+    current->locals[current->localCount - 1].assignRule = READONLY;
+  }
 }
 
 static void defineVariable(uint8_t global) {
@@ -457,7 +480,20 @@ static void block() {
 }
 
 static void varDeclaration() {
-  uint8_t global = parseVariable("Expect variable name.");
+  uint8_t global = parseVariable("Expect variable name.", MULTIPLE_ASSIGN);
+
+  if (match(TOKEN_EQUAL)) {
+    expression();
+  } else {
+    emitByte(OP_NIL);
+  }
+  consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
+
+  defineVariable(global);
+}
+
+static void constDeclaration() {
+  uint8_t global = parseVariable("Expect variable name.", SINGLE_ASSIGN);
 
   if (match(TOKEN_EQUAL)) {
     expression();
@@ -492,6 +528,7 @@ static void synchronize() {
     case TOKEN_CLASS:
     case TOKEN_FUN:
     case TOKEN_VAR:
+    case TOKEN_CONST:
     case TOKEN_FOR:
     case TOKEN_IF:
     case TOKEN_WHILE:
@@ -523,6 +560,8 @@ static void statement() {
 static void declaration() {
   if (match(TOKEN_VAR)) {
     varDeclaration();
+  } else if (match(TOKEN_CONST)) {
+    constDeclaration();
   } else {
     statement();
   }
