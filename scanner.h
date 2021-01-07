@@ -1,7 +1,8 @@
 #ifndef xasm_scanner_h
 #define xasm_scanner_h
 
-typedef enum {
+typedef enum
+{
   // Single-character tokens.
   TOKEN_LEFT_PAREN,
   TOKEN_RIGHT_PAREN,
@@ -14,6 +15,7 @@ typedef enum {
   TOKEN_SEMICOLON,
   TOKEN_SLASH,
   TOKEN_STAR,
+  TOKEN_QUESTION,
 
   // One or two character tokens.
   TOKEN_BANG,
@@ -54,7 +56,8 @@ typedef enum {
   TOKEN_EOF
 } TokenType;
 
-typedef struct {
+typedef struct
+{
   TokenType type;
   const char *start;
   int length;

@@ -3,27 +3,41 @@
 #include "debug.h"
 #include "value.h"
 
-void disassembleChunk(Chunk *chunk, const char *name) {
+void disassembleChunk(Chunk *chunk, const char *name)
+{
   printf("== %s ==\n", name);
 
-  for (int offset = 0; offset < chunk->count;) {
+  for (int offset = 0; offset < chunk->count;)
+  {
     offset = disassembleInstruction(chunk, offset);
   }
   printf("== %s ==\n", name);
 }
 
-static int simpleInstruction(const char *name, int offset) {
+static int simpleInstruction(const char *name, int offset)
+{
   printf("%s\n", name);
   return offset + 1;
 }
 
-static int byteInstruction(const char *name, Chunk *chunk, int offset) {
+static int byteInstruction(const char *name, Chunk *chunk, int offset)
+{
   uint8_t slot = chunk->code[offset + 1];
   printf("%-16s %4d\n", name, slot);
   return offset + 2;
 }
 
-static int constantInstruction(const char *name, Chunk *chunk, int offset) {
+static int jumpInstruction(const char *name, int sign, Chunk *chunk, int offset)
+{
+  uint16_t jump = (uint16_t)(chunk->code[offset + 1] << 8);
+  jump |= chunk->code[offset + 2];
+  printf("%-16s %4d -> %d\n", name, offset,
+         offset + 3 + sign * jump);
+  return offset + 3;
+}
+
+static int constantInstruction(const char *name, Chunk *chunk, int offset)
+{
   uint8_t constant = chunk->code[offset + 1];
   printf("%-16s %4d '", name, constant);
   printValue(chunk->constants.values[constant]);
@@ -31,38 +45,27 @@ static int constantInstruction(const char *name, Chunk *chunk, int offset) {
   return offset + 2;
 }
 
-int disassembleInstruction(Chunk *chunk, int offset) {
+int disassembleInstruction(Chunk *chunk, int offset)
+{
   printf("%04d ", offset);
-  if (offset > 0 && chunk->lines[offset] == chunk->lines[offset - 1]) {
+  if (offset > 0 && chunk->lines[offset] == chunk->lines[offset - 1])
+  {
     printf("   | ");
-  } else {
+  }
+  else
+  {
     printf("%4d ", chunk->lines[offset]);
   }
 
   uint8_t instruction = chunk->code[offset];
-  switch (instruction) {
-  case OP_JMP:
-    return simpleInstruction("OP_jmp", offset);
-  case OP_JE:
-    return simpleInstruction("OP_je", offset);
-  case OP_JNE:
-    return simpleInstruction("OP_jne", offset);
-  case OP_JG:
-    return simpleInstruction("OP_jg", offset);
-  case OP_JGE:
-    return simpleInstruction("OP_jge", offset);
-  case OP_JL:
-    return simpleInstruction("OP_jl", offset);
-  case OP_JLE:
-    return simpleInstruction("OP_jle", offset);
-  case OP_J1:
-    return simpleInstruction("OP_j1", offset);
-  case OP_J0:
-    return simpleInstruction("OP_j0", offset);
-  case OP_JEL:
-    return simpleInstruction("OP_jel", offset);
-  case OP_JNEL:
-    return simpleInstruction("OP_jnel", offset);
+  switch (instruction)
+  {
+  case OP_JUMP:
+    return jumpInstruction("OP_JUMP", 1, chunk, offset);
+  case OP_JUMP_IF_FALSE:
+    return jumpInstruction("OP_JUMP_IF_FALSE", 1, chunk, offset);
+  case OP_JUMP_IF_TRUE:
+    return simpleInstruction("OP_jump_if_true", offset);
 
   case OP_EXIT:
     return simpleInstruction("OP_exit", offset);

@@ -4,18 +4,11 @@
 #include "common.h"
 #include "value.h"
 
-typedef enum {
-  OP_JMP,
-  OP_JE,
-  OP_JNE,
-  OP_JG,
-  OP_JGE,
-  OP_JL,
-  OP_JLE,
-  OP_J1,
-  OP_J0,
-  OP_JEL,
-  OP_JNEL,
+typedef enum
+{
+  OP_JUMP,
+  OP_JUMP_IF_FALSE,
+  OP_JUMP_IF_TRUE,
 
   OP_EXIT,
   OP_PAUSE,
@@ -72,7 +65,8 @@ typedef enum {
   OP_PRINT,
 } OpCode;
 
-typedef struct {
+typedef struct
+{
   int count;
   int capacity;
   uint8_t *code;
