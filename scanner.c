@@ -4,8 +4,7 @@
 #include "common.h"
 #include "scanner.h"
 
-typedef struct
-{
+typedef struct {
   const char *start;
   const char *current;
   int line;
@@ -13,37 +12,32 @@ typedef struct
 
 Scanner scanner;
 
-void initScanner(const char *source)
-{
+void initScanner(const char *source) {
   scanner.start = source;
   scanner.current = source;
   scanner.line = 1;
 }
 
-static bool isAlpha(char c)
-{
+static bool isAlpha(char c) {
   return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 static bool isDigit(char c) { return c >= '0' && c <= '9'; }
 
 static bool isAtEnd() { return *scanner.current == '\0'; }
 
-static char advance()
-{
+static char advance() {
   scanner.current++;
   return scanner.current[-1];
 }
 
 static char peek() { return *scanner.current; }
-static char peekNext()
-{
+static char peekNext() {
   if (isAtEnd())
     return '\0';
   return scanner.current[1];
 }
 
-static bool match(char expected)
-{
+static bool match(char expected) {
   if (isAtEnd())
     return false;
   if (*scanner.current != expected)
@@ -53,8 +47,7 @@ static bool match(char expected)
   return true;
 }
 
-static Token makeToken(TokenType type)
-{
+static Token makeToken(TokenType type) {
   Token token;
   token.type = type;
   token.start = scanner.start;
@@ -63,8 +56,7 @@ static Token makeToken(TokenType type)
   return token;
 }
 
-static Token errorToken(const char *message)
-{
+static Token errorToken(const char *message) {
   Token token;
   token.type = TOKEN_ERROR;
   token.start = message;
@@ -74,13 +66,10 @@ static Token errorToken(const char *message)
   return token;
 }
 
-static void skipWhitespace()
-{
-  for (;;)
-  {
+static void skipWhitespace() {
+  for (;;) {
     char c = peek();
-    switch (c)
-    {
+    switch (c) {
     case ' ':
     case '\r':
     case '\t':
@@ -92,14 +81,11 @@ static void skipWhitespace()
       break;
 
     case '/':
-      if (peekNext() == '/')
-      {
+      if (peekNext() == '/') {
         // A comment goes until the end of the line.
         while (peek() != '\n' && !isAtEnd())
           advance();
-      }
-      else
-      {
+      } else {
         return;
       }
       break;
@@ -111,41 +97,35 @@ static void skipWhitespace()
 }
 
 static TokenType checkKeyword(int start, int length, const char *rest,
-                              TokenType type)
-{
+                              TokenType type) {
   if (scanner.current - scanner.start == start + length &&
-      memcmp(scanner.start + start, rest, length) == 0)
-  {
+      memcmp(scanner.start + start, rest, length) == 0) {
     return type;
   }
 
   return TOKEN_IDENTIFIER;
 }
 
-static TokenType identifierType()
-{
-  switch (scanner.start[0])
-  {
+static TokenType identifierType() {
+  switch (scanner.start[0]) {
   case 'a':
     return checkKeyword(1, 2, "nd", TOKEN_AND);
   case 'c':
-    if (scanner.current - scanner.start > 1)
-    {
-      switch (scanner.start[1])
-      {
+    if (scanner.current - scanner.start > 1) {
+      switch (scanner.start[1]) {
       case 'l':
         return checkKeyword(2, 3, "ass", TOKEN_CLASS);
       case 'o':
         return checkKeyword(2, 3, "nst", TOKEN_CONST);
       }
     }
+  case 'd':
+    return checkKeyword(1, 1, "o", TOKEN_DO);
   case 'e':
     return checkKeyword(1, 3, "lse", TOKEN_ELSE);
   case 'f':
-    if (scanner.current - scanner.start > 1)
-    {
-      switch (scanner.start[1])
-      {
+    if (scanner.current - scanner.start > 1) {
+      switch (scanner.start[1]) {
       case 'a':
         return checkKeyword(2, 3, "lse", TOKEN_FALSE);
       case 'o':
@@ -168,10 +148,8 @@ static TokenType identifierType()
   case 's':
     return checkKeyword(1, 4, "uper", TOKEN_SUPER);
   case 't':
-    if (scanner.current - scanner.start > 1)
-    {
-      switch (scanner.start[1])
-      {
+    if (scanner.current - scanner.start > 1) {
+      switch (scanner.start[1]) {
       case 'h':
         return checkKeyword(2, 2, "is", TOKEN_THIS);
       case 'r':
@@ -188,24 +166,21 @@ static TokenType identifierType()
   return TOKEN_IDENTIFIER;
 }
 
-static Token identifier()
-{
+static Token identifier() {
   while (isAlpha(peek()) || isDigit(peek()))
     advance();
 
   return makeToken(identifierType());
 }
 
-static Token number()
-{
+static Token number() {
   while (isDigit(peek()))
     advance();
 
   TokenType type = TOKEN_INT;
 
   // Look for a fractional part.
-  if (peek() == '.' && isDigit(peekNext()))
-  {
+  if (peek() == '.' && isDigit(peekNext())) {
     type = TOKEN_FLOAT;
     // Consume the ".".
     advance();
@@ -217,10 +192,8 @@ static Token number()
   return makeToken(type);
 }
 
-static Token string()
-{
-  while (peek() != '"' && !isAtEnd())
-  {
+static Token string() {
+  while (peek() != '"' && !isAtEnd()) {
     if (peek() == '\n')
       scanner.line++;
     advance();
@@ -234,14 +207,12 @@ static Token string()
   return makeToken(TOKEN_STRING);
 }
 
-Token scanToken()
-{
+Token scanToken() {
   skipWhitespace();
 
   scanner.start = scanner.current;
 
-  if (isAtEnd())
-  {
+  if (isAtEnd()) {
     return makeToken(TOKEN_EOF);
   }
 
@@ -251,8 +222,7 @@ Token scanToken()
   if (isDigit(c))
     return number();
 
-  switch (c)
-  {
+  switch (c) {
   case '(':
     return makeToken(TOKEN_LEFT_PAREN);
   case ')':
