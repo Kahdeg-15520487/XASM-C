@@ -54,6 +54,10 @@ typedef enum
   TOKEN_WHILE,
   TOKEN_DO,
 
+  // TODO implement break and continue
+  TOKEN_BREAK,
+  TOKEN_CONTINUE,
+
   TOKEN_ERROR,
   TOKEN_EOF
 } TokenType;
