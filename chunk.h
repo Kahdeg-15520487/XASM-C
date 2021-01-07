@@ -4,8 +4,7 @@
 #include "common.h"
 #include "value.h"
 
-typedef enum
-{
+typedef enum {
   OP_JUMP,
   OP_JUMP_IF_FALSE,
   OP_JUMP_IF_TRUE,
@@ -58,16 +57,18 @@ typedef enum
   OP_RANDMAX,
   OP_RANDRANGE,
 
+  // function call
   OP_CALL,
   OP_RET,
+
+  // system
   OP_BRP,
   OP_REQ,
   OP_HOST,
   OP_PRINT,
 } OpCode;
 
-typedef struct
-{
+typedef struct {
   int count;
   int capacity;
   uint8_t *code;

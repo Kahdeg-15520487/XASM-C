@@ -144,7 +144,7 @@ int disassembleInstruction(Chunk *chunk, int offset) {
     return simpleInstruction("OP_randrange", offset);
 
   case OP_CALL:
-    return simpleInstruction("OP_call", offset);
+    return byteInstruction("OP_call", chunk, offset);
   case OP_RET:
     return simpleInstruction("OP_ret", offset);
   case OP_BRP:
